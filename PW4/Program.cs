@@ -8,6 +8,7 @@ const string commandsInfo = """
                             d <book id> - Delete book.
                             g <bool id> - Give the book to the reader.
                             r <bool id> - Return book.
+                            lnr - Display a list of readers who have not returned books during the year.
                             h - Help.
                             q - Quit.
                             """;
@@ -45,7 +46,7 @@ while (true)
             Console.WriteLine($"Picked: ");
             foreach (var record in book.Picked)
             {
-                Console.WriteLine($"- {record.ReaderName}: {record.BorrowDate} - " 
+                Console.WriteLine($"- {record.ReaderName}: {record.BorrowDate} - "
                                   + (record.ReturnDate != null ? record.ReturnDate : "..."));
             }
         }
@@ -80,6 +81,14 @@ while (true)
                 Console.WriteLine($"Invalid input. {e.Message}");
             }
         }
+    }
+    else if (command is "nt")
+    {
+        uint catalogId = books.LastOrDefault()?.Id + 1 ?? 1;
+        CatalogBook newBook = new CatalogBook("Война и мир", [ "Л.Н. Толстой" ], 1873, "Русский вестник", 1300,
+            catalogId, 4, 4);
+        books.Add(newBook);
+        Console.WriteLine($"New book id: {newBook.Id}.");
     }
     else if (command.StartsWith("d ") && uint.TryParse(command[2..], out var id))
     {
@@ -132,21 +141,42 @@ while (true)
                 .Select((p, i) => (index: i, record: p))
                 .Where(p => p.record.ReturnDate == null)
                 .ToList();
-            
+
             for (int i = 0; i < records.Count; i++)
             {
                 var r = records[i];
                 Console.WriteLine($"{i}) {r.record.BorrowDate:dd.MM.yyyy} - {r.record.ReaderName}");
             }
 
-            int recordIndex = ReadValue<int>("Enter record number: ");
+            int recordIndex;
+            while (true)
+            {
+                recordIndex = ReadValue<int>("Enter record number: ");
+                if (recordIndex < records.Count && recordIndex >= 0) break;
+                Console.WriteLine("Invalid index");
+            }
+
             DateOnly returnDate = DateOnly.FromDateTime(DateTime.Now);
             //DateOnly returnDate = ReadValue<DateOnly>("Enter return date: ");
 
-            BorrowerInfo info = records[recordIndex].record with { ReturnDate = returnDate }; 
+            BorrowerInfo info = records[recordIndex].record with { ReturnDate = returnDate };
             book.Picked[records[recordIndex].index] = info;
             book.AvailableInstances++;
             Console.WriteLine($"Book with id {id} returned. There are {book.AvailableInstances} copies left");
+        }
+    }
+    else if (command is "lnr")
+    {
+        DateOnly today = DateOnly.FromDateTime(DateTime.Now);
+        foreach (var book in books)
+        {
+            foreach (var record in book.Picked)
+            {
+                if (record.ReturnDate == null && record.BorrowDate.AddYears(1) < today)
+                {
+                    Console.WriteLine($"{record.BorrowDate:dd.MM.yyyy} - {record.ReaderName} | {book.Id}, \"{book.Title}\"");
+                }
+            }
         }
     }
     else if (command is "q" or "quit")
